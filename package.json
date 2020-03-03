@@ -266,6 +266,18 @@
                     "description": "%config.print.imgToBase64.description%",
                     "scope": "resource"
                 },
+                "markdown.extension.print.useCollapsibleHeaders": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "%config.print.useCollapsibleHeaders.description%",
+                    "scope": "resource"
+                },
+                "markdown.extension.print.addHtmlDecorations": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "%config.print.addHtmlDecorations.description%",
+                    "scope": "resource"
+                },
                 "markdown.extension.print.onFileSave": {
                     "type": "boolean",
                     "default": false,

@@ -31,6 +31,8 @@
     "config.tableFormatter.normalizeIndentation.description": "Normalize table indentation to closest multiple of configured tabSize",
     "config.print.absoluteImgPath.description": "Convert image path to absolute path",
     "config.print.imgToBase64.description": "Convert images to base64 when printing to HTML",
+    "config.print.useCollapsibleHeaders.description": "Convert Headers to collapsible details",
+    "config.print.addHtmlDecorations.description": "Generate a \"Go To Top\" button and enable links for sections inside details.",
     "config.print.onFileSave.description": "Print current document to HTML when file is saved",
     "config.print.validateUrls.description": "Enable/disable URL validation when printing",
     "config.print.theme": "Theme of the exported HTML",

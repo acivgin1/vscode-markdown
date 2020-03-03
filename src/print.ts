@@ -103,12 +103,58 @@ async function print(type: string) {
 
     const hasMath = hasMathEnv(doc.getText());
 
+    const headerTagRegex = /(<h\d[^>]*>)([^<>]*)(<\/h[^>]*>)/g;  // Match '<hX'
+
+    const useCollapsibleHeaders = config.get<boolean>('print.useCollapsibleHeaders');
+    if (useCollapsibleHeaders) {
+        const headingTagTracker = <boolean[]>Array(6).fill(false);
+
+        body = body.replace(headerTagRegex, function (_, openTag, content, closeTag) {
+            openTag = openTag.replace(">", " style=\"display: inline\">");
+            const headingNumber = parseInt(openTag.split(" ")[0].slice(2)) - 1;
+
+            openTag = "<details open>\n<summary>" + openTag
+            for (let index = headingTagTracker.length - 1; index >= headingNumber; index--) {
+                const tagOpened = headingTagTracker[index];
+                if (tagOpened) {
+                    openTag = "</details>\n" + openTag
+                    headingTagTracker[index] = false;
+                }
+            }
+            closeTag = closeTag + "</summary>"
+            headingTagTracker[headingNumber] = true
+            return openTag + content + closeTag;
+        });
+
+        for (let index = headingTagTracker.length - 1; index >= 0; index--) {
+            const tagOpened = headingTagTracker[index];
+            if (tagOpened) {
+                body = body + "</details>"
+            }
+        }
+    }
+
+    const addHtmlDecorations = config.get<boolean>('print.addHtmlDecorations');
+    let headHtml = ""
+    if (addHtmlDecorations) {
+        const headHtmlSrc = getMediaPath("html/head.html");
+        headHtml = headHtml + fs.readFileSync(headHtmlSrc);
+
+        const bodyFootHtmlSrc = getMediaPath("html/body_foot.html");
+        const bodyFootHtml = fs.readFileSync(bodyFootHtmlSrc);
+
+        const bodyTopHtmlSrc = getMediaPath("html/body_top.html");
+        const bodyTopHtml = fs.readFileSync(bodyTopHtmlSrc);
+        body = bodyTopHtml + body + bodyFootHtml
+    }
+
     const html = `<!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>${title ? title : ''}</title>
         ${getStyles(doc.uri, hasMath)}
+        ${headHtml}
         ${hasMath ? '<script src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>' : ''}
     </head>
     <body${config.get<string>('print.theme') === 'light' ? ' class="vscode-light"' : ''}>
