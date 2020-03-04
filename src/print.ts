@@ -64,6 +64,52 @@ async function print(type: string) {
 
     // Image paths
     const config = workspace.getConfiguration('markdown.extension', doc.uri);
+    const useCollapsibleHeaders = config.get<boolean>('print.useCollapsibleHeaders');
+    const headingRegex = /(<h\d[^>]*>)(.*)(<\/h[^>]*>)/g;  // Match '(<h1>)(<> some text <>)(<h1>)'
+
+    if (useCollapsibleHeaders) {
+        const headingTagTracker = <boolean[]>Array(6).fill(false);
+
+        body = body.replace(headingRegex, function (_, openHeadingTag, content, closeHeadingTag) {
+            // Alternatively can be done through CSS targeting headings
+            openHeadingTag = openHeadingTag.replace(">", " style=\"display: inline\">");
+            const headingNumber = parseInt(openHeadingTag.split(" ")[0].slice(2)) - 1;
+
+            openHeadingTag = "<details open>\n<summary>" + openHeadingTag
+            for (let index = headingTagTracker.length - 1; index >= headingNumber; index--) {
+                const tagOpened = headingTagTracker[index];
+                if (tagOpened) {
+                    openHeadingTag = "</details>\n" + openHeadingTag
+                    headingTagTracker[index] = false;
+                }
+            }
+            closeHeadingTag = closeHeadingTag + "</summary>"
+            headingTagTracker[headingNumber] = true
+            return openHeadingTag + content + closeHeadingTag;
+        });
+        // Close remaining details sections
+        for (let index = headingTagTracker.length - 1; index >= 0; index--) {
+            const tagOpened = headingTagTracker[index];
+            if (tagOpened) {
+                body = body + "</details>"
+            }
+        }
+    }
+
+    const addHtmlDecorations = config.get<boolean>('print.addHtmlDecorations');
+    let headHtml = ""
+    if (addHtmlDecorations) {
+        const headHtmlSrc = getMediaPath("html/head.html");
+        headHtml = headHtml + fs.readFileSync(headHtmlSrc);
+
+        const bodyFootHtmlSrc = getMediaPath("html/body_foot.html");
+        const bodyFootHtml = fs.readFileSync(bodyFootHtmlSrc);
+
+        const bodyTopHtmlSrc = getMediaPath("html/body_top.html");
+        const bodyTopHtml = fs.readFileSync(bodyTopHtmlSrc);
+        body = bodyTopHtml + body + bodyFootHtml
+    }
+
     const configToBase64 = config.get<boolean>('print.imgToBase64');
     const configAbsPath = config.get<boolean>('print.absoluteImgPath');
     const imgTagRegex = /(<img[^>]+src=")([^"]+)("[^>]*>)/g;  // Match '<img...src="..."...>'
@@ -102,51 +148,6 @@ async function print(type: string) {
     }
 
     const hasMath = hasMathEnv(doc.getText());
-
-    const headerTagRegex = /(<h\d[^>]*>)([^<>]*)(<\/h[^>]*>)/g;  // Match '<hX'
-
-    const useCollapsibleHeaders = config.get<boolean>('print.useCollapsibleHeaders');
-    if (useCollapsibleHeaders) {
-        const headingTagTracker = <boolean[]>Array(6).fill(false);
-
-        body = body.replace(headerTagRegex, function (_, openTag, content, closeTag) {
-            openTag = openTag.replace(">", " style=\"display: inline\">");
-            const headingNumber = parseInt(openTag.split(" ")[0].slice(2)) - 1;
-
-            openTag = "<details open>\n<summary>" + openTag
-            for (let index = headingTagTracker.length - 1; index >= headingNumber; index--) {
-                const tagOpened = headingTagTracker[index];
-                if (tagOpened) {
-                    openTag = "</details>\n" + openTag
-                    headingTagTracker[index] = false;
-                }
-            }
-            closeTag = closeTag + "</summary>"
-            headingTagTracker[headingNumber] = true
-            return openTag + content + closeTag;
-        });
-
-        for (let index = headingTagTracker.length - 1; index >= 0; index--) {
-            const tagOpened = headingTagTracker[index];
-            if (tagOpened) {
-                body = body + "</details>"
-            }
-        }
-    }
-
-    const addHtmlDecorations = config.get<boolean>('print.addHtmlDecorations');
-    let headHtml = ""
-    if (addHtmlDecorations) {
-        const headHtmlSrc = getMediaPath("html/head.html");
-        headHtml = headHtml + fs.readFileSync(headHtmlSrc);
-
-        const bodyFootHtmlSrc = getMediaPath("html/body_foot.html");
-        const bodyFootHtml = fs.readFileSync(bodyFootHtmlSrc);
-
-        const bodyTopHtmlSrc = getMediaPath("html/body_top.html");
-        const bodyTopHtml = fs.readFileSync(bodyTopHtmlSrc);
-        body = bodyTopHtml + body + bodyFootHtml
-    }
 
     const html = `<!DOCTYPE html>
     <html>
