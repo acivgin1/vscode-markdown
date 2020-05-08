@@ -2,7 +2,7 @@
 
 [![version](https://img.shields.io/vscode-marketplace/v/yzhang.markdown-all-in-one.svg?style=flat-square&label=vscode%20marketplace)](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
 [![installs](https://img.shields.io/vscode-marketplace/d/yzhang.markdown-all-in-one.svg?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
-[![AppVeyor](https://img.shields.io/appveyor/ci/yzhang-gh/vscode-markdown.svg?style=flat-square&label=appveyor%20build)](https://ci.appveyor.com/project/yzhang-gh/vscode-markdown)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yzhang-gh/vscode-markdown/CI?style=flat-square)](https://github.com/yzhang-gh/vscode-markdown/actions)
 [![GitHub stars](https://img.shields.io/github/stars/yzhang-gh/vscode-markdown.svg?style=flat-square&label=github%20stars)](https://github.com/yzhang-gh/vscode-markdown)
 [![GitHub Contributors](https://img.shields.io/github/contributors/yzhang-gh/vscode-markdown.svg?style=flat-square)](https://github.com/yzhang-gh/vscode-markdown/graphs/contributors)
 
@@ -24,12 +24,12 @@ All you need for Markdown (keyboard shortcuts, table of contents, auto preview a
 
   - The indentation rule (tab or spaces) of TOC will be the same of your current file (find it in the right bottom corner)
 
-  - To make TOC compatible with GitHub, set option `githubCompatibility` to `true`
+  - To make TOC compatible with GitHub or GitLab, set option `slugifyMode` accordingly
 
-  - Use `<!-- omit in toc -->` to ignore specific heading in TOC  
+  - Use `<!-- omit in toc -->` to ignore a specific heading in TOC  
     (It can also be placed above a heading)
 
-  - You can also use the `omittedFromToc` setting to omit some headings from TOC:
+  - You can also use the `omittedFromToc` setting to omit some headings (and their subheadings) from TOC:
     ```js
     // In your settings.json
     "markdown.extension.toc.omittedFromToc": {
@@ -75,6 +75,8 @@ All you need for Markdown (keyboard shortcuts, table of contents, auto preview a
 - **Math**
 
   <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/math.png" alt="math" width="544px"></p>
+
+  Please use [Markdown+Math](https://marketplace.visualstudio.com/items?itemName=goessner.mdmath) for dedicated math support. Be sure to disable `math.enabled` option of this extension.
 
 - **Auto completions**
 
@@ -151,7 +153,7 @@ All you need for Markdown (keyboard shortcuts, table of contents, auto preview a
 | `markdown.extension.syntax.plainTheme`             | `false`    | A distraction-free theme                                                                         |
 | `markdown.extension.tableFormatter.enabled`        | `true`     | Enable GFM table formatter                                                                       |
 | `markdown.extension.toc.downcaseLink`              | `true`     | Force the TOC links to be lowercase                                                              |
-| `markdown.extension.toc.githubCompatibility`       | `false`    | GitHub compatibility                                                                             |
+| `markdown.extension.toc.slugifyMode`               | `vscode`   | Slugify mode for TOC link generation                                                             |
 | `markdown.extension.toc.omittedFromToc`            | `{}`       | Lists of headings to omit by project file (e.g. `{ "README.md": ["# Introduction"] }`)           |
 | `markdown.extension.toc.levels`                    | `1..6`     | Control the heading levels to show in the table of contents.                                     |
 | `markdown.extension.toc.orderedList`               | `false`    | Use ordered list in the table of contents.                                                       |
@@ -161,13 +163,21 @@ All you need for Markdown (keyboard shortcuts, table of contents, auto preview a
 
 </details>
 
+## FAQ
+
+- **Error "command 'markdown.extension.onXXXKey' not found"**
+  
+  In most cases, it is because VSCode needs a few seconds to load this extension when you open a Markdown file *for the first time*. (You will see a message "Activating Extensions..." on the status bar.)
+
+  If you still see this "command not found" error after waiting for a long time, please try to restart VSCode (or reinstall this extension if needed). Otherwise feel free to open a new issue on GitHub.
+
 ## Changelog
 
 See [CHANGELOG](CHANGELOG.md) for more information.
 
 ## Latest Development Build
 
-Download it [here](https://ci.appveyor.com/project/yzhang-gh/vscode-markdown/build/artifacts).
+Download it [here](https://github.com/yzhang-gh/vscode-markdown/actions/), please click the latest passing event to download artifacts.
 
 To install, execute `Extensions: Install from VSIX...` in the Command Palette (`ctrl + shift + p`)
 
@@ -187,6 +197,6 @@ Special thanks to all the [contributors](https://github.com/yzhang-gh/vscode-mar
 
 ---
 
-Thanks [VSCode Power User Course](https://VSCode.pro?utm_source=MarkdownAllInOne) for sharing many VSCode tips with me.
+Thank [VSCode Power User Course](https://VSCode.pro?utm_source=MarkdownAllInOne) for sharing many VSCode tips with me.
 
 [![VSCode Power User course](https://img.shields.io/badge/Learn%20-VSCode%20Power%20User%20Course%20%E2%86%92-gray.svg?style=flat-square&colorA=444444&colorB=4F44D6)](https://VSCode.pro?utm_source=MarkdownAllInOne)

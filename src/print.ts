@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as path from 'path';
 import { commands, ExtensionContext, TextDocument, Uri, window, workspace } from 'vscode';
 import localize from './localize';
-import { mdEngine } from "./markdownEngine";
+import { mdEngine, extensionBlacklist } from "./markdownEngine";
 import { isMdEditor } from './util';
 
 let thisContext: ExtensionContext;
@@ -147,16 +147,29 @@ async function print(type: string) {
         });
     }
 
-    const hasMath = hasMathEnv(doc.getText());
+    //// Convert `.md` links to `.html` by default (#667)
+    const hrefRegex = /(<a[^>]+href=")([^"]+)("[^>]*>)/g;  // Match '<a...href="..."...>'
+    body = body.replace(hrefRegex, function (_, g1, g2, g3) {
+        if (g2.endsWith('.md')) {
+            return `${g1}${g2.replace(/\.md$/, '.html')}${g3}`;
+        } else {
+            return _;
+        }
+    });
 
+    const hasMath = hasMathEnv(doc.getText());
+    const extensionStyles = await getPreviewExtensionStyles();
+    const extensionScripts = await getPreviewExtensionScripts();
     const html = `<!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>${title ? title : ''}</title>
+        ${extensionStyles}
         ${getStyles(doc.uri, hasMath)}
         ${headHtml}
         ${hasMath ? '<script src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>' : ''}
+        ${extensionScripts}
     </head>
     <body${config.get<string>('print.theme') === 'light' ? ' class="vscode-light"' : ''}>
         ${body}
@@ -264,4 +277,49 @@ function getPreviewSettingStyles(): string {
                 ${+lineHeight > 0 ? `line-height: ${lineHeight};` : ''}
             }
         </style>`;
+}
+
+async function getPreviewExtensionStyles() {
+    var result = "<style>\n"
+    for (const contribute of mdEngine.contributionsProvider.contributions) {
+        if (extensionBlacklist.has(contribute.extensionId)) {
+            continue;
+        }
+        if (!contribute.previewStyles || !contribute.previewStyles.length) {
+            continue;
+        }
+        result += `/* From extension ${contribute.extensionId} */\n`;
+        for (const styleFile of contribute.previewStyles) {
+            try {
+                result += await fs.promises.readFile(styleFile.fsPath, { encoding: "utf8" });
+            } catch (error) {
+                result += "/* Error */";
+            }
+            result += "\n";
+        }
+    }
+    result += "</style>";
+    return result;
+}
+
+async function getPreviewExtensionScripts() {
+    var result = "";
+    for (const contribute of mdEngine.contributionsProvider.contributions) {
+        if (extensionBlacklist.has(contribute.extensionId)) {
+            continue;
+        }
+        if (!contribute.previewScripts || !contribute.previewScripts.length) {
+            continue;
+        }
+        for (const scriptFile of contribute.previewScripts) {
+            result += `<script type="text/javascript">\n/* From extension ${contribute.extensionId} */\n`;
+            try {
+                result += await fs.promises.readFile(scriptFile.fsPath, { encoding: "utf8" });
+            } catch (error) {
+                result += "/* Error */";
+            }
+            result += `\n</script>\n`;
+        }
+    }
+    return result;
 }

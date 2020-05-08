@@ -1,8 +1,9 @@
 'use strict';
 
+import * as path from 'path';
 import * as stringSimilarity from 'string-similarity';
-import { CancellationToken, CodeLens, CodeLensProvider, commands, EndOfLine, ExtensionContext, languages, Range, TextDocument, TextDocumentWillSaveEvent, window, workspace } from 'vscode';
-import { extractText, isMdEditor, mdDocSelector, slugify } from './util';
+import { CancellationToken, CodeLens, CodeLensProvider, commands, EndOfLine, ExtensionContext, languages, Range, TextDocument, TextDocumentWillSaveEvent, window, workspace, WorkspaceEdit } from 'vscode';
+import { isMdEditor, mdDocSelector, mdHeadingToPlaintext, slugify } from './util';
 
 /**
  * Workspace config
@@ -10,10 +11,13 @@ import { extractText, isMdEditor, mdDocSelector, slugify } from './util';
 const docConfig = { tab: '  ', eol: '\r\n' };
 const tocConfig = { startDepth: 1, endDepth: 6, listMarker: '-', orderedList: false, updateOnSave: false, plaintext: false, tabSize: 2 };
 
+const REGEX_SECNUMBER = /^(\s{0,3}#+ +)((?:\d\.)* )?(.*)/;
+
 export function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('markdown.extension.toc.create', createToc),
         commands.registerCommand('markdown.extension.toc.update', updateToc),
+        commands.registerCommand('markdown.extension.toc.addSecNumbers', addSectionNumbers),
         workspace.onWillSaveTextDocument(onWillSave),
         languages.registerCodeLensProvider(mdDocSelector, new TocCodeLensProvider())
     );
@@ -64,24 +68,71 @@ async function updateToc() {
     });
 }
 
-// Returns a list of user defined excluded headings for the given document.
-function getExcludedHeadings(doc: TextDocument): { level: number, text: string }[] {
-    const omittedFromToc = workspace.getConfiguration('markdown.extension.toc').get<object>('omittedFromToc');
+function addSectionNumbers() {
+    const editor = window.activeTextEditor;
+    if (!isMdEditor(editor)) {
+        return;
+    }
+    const activeDoc = editor.document;
 
-    if (typeof omittedFromToc !== 'object' || omittedFromToc === null) {
+    let isInCodeBlocks = false;
+    let secNumbers = [0, 0, 0, 0, 0, 0];
+    let edit = new WorkspaceEdit();
+    for (let i = 0; i < activeDoc.lineCount; i++) {
+        const lineText = activeDoc.lineAt(i).text;
+        if (!isInCodeBlocks) {
+            if (/^ {0,3}```[\w \+]*$/.test(lineText)) {
+                isInCodeBlocks = true;
+            } else {
+                if (REGEX_SECNUMBER.test(lineText)) {
+                    const newText = lineText.replace(REGEX_SECNUMBER, (_, g1, _g2, g3) => {
+                        const level = g1.trim().length;
+                        secNumbers[level - 1] += 1;
+                        const secNumStr = [...Array(level).keys()].map(num => `${secNumbers[num]}.`).join('');
+                        return `${g1}${secNumStr} ${g3}`;
+                    });
+                    edit.replace(activeDoc.uri, activeDoc.lineAt(i).range, newText);
+                }
+            }
+        } else {
+            if (/^\s{0,3}```\s*$/.test(lineText)) {
+                isInCodeBlocks = false;
+            }
+        }
+    }
+
+    return workspace.applyEdit(edit);
+}
+
+function normalizePath(path: string): string {
+    return path.replace(/\\/g, '/').toLowerCase();
+}
+
+//// Returns a list of user defined excluded headings for the given document.
+function getExcludedHeadings(doc: TextDocument): { level: number, text: string }[] {
+    const configObj = workspace.getConfiguration('markdown.extension.toc').get<object>('omittedFromToc');
+
+    if (typeof configObj !== 'object' || configObj === null) {
         window.showErrorMessage(`\`omittedFromToc\` must be an object (e.g. \`{"README.md": ["# Introduction"]}\`)`);
         return [];
     }
 
     const docWorkspace = workspace.getWorkspaceFolder(doc.uri);
 
-    // If we are not in a workspace (i.e. in a standalone file), use the absolute path.
-    // Otherwise, use the workspace relative path.
-    const currentPath = docWorkspace
-        ? doc.fileName.replace(`${docWorkspace.uri.fsPath}/`, '')
-        : doc.fileName;
+    let omittedTocPerFile = {};
+    for (const filePath of Object.keys(configObj)) {
+        let normedPath: string;
+        //// Converts paths to absolute paths if a workspace is opened
+        if (docWorkspace !== undefined && !path.isAbsolute(filePath)) {
+            normedPath = normalizePath(path.join(docWorkspace.uri.fsPath, filePath));
+        } else {
+            normedPath = normalizePath(filePath);
+        }
+        omittedTocPerFile[normedPath] = [...(omittedTocPerFile[normedPath] || []), ...configObj[filePath]];
+    }
 
-    const omittedList = omittedFromToc[currentPath] || [];
+    const currentFile = normalizePath(doc.fileName);
+    const omittedList = omittedTocPerFile[currentFile] || [];
 
     if (!Array.isArray(omittedList)) {
         window.showErrorMessage(`\`omittedFromToc\` attributes must be arrays (e.g. \`{"README.md": ["# Introduction"]}\`)`);
@@ -120,9 +171,14 @@ async function generateTocText(doc: TextDocument): Promise<string> {
     tocEntries.forEach(entry => {
         if (entry.level <= tocConfig.endDepth && entry.level >= startDepth) {
             let relativeLvl = entry.level - startDepth;
+
+            //// Remove certain Markdown syntaxes
             //// `[text](link)` → `text`
-            let entryText = entry.text.replace(/\[([^\]]*)\]\([^\)]*\)/, (_, g1) => g1);
-            let slug = slugify(extractText(entryText));
+            let headingText = entry.text.replace(/\[([^\]]*)\]\([^\)]*\)/, (_, g1) => g1);
+            //// `[text][label]` → `text`
+            headingText = headingText.replace(/\[([^\]]*)\]\[[^\)]*\]/, (_, g1) => g1);
+
+            let slug = slugify(mdHeadingToPlaintext(entry.text));
 
             if (anchorOccurances.hasOwnProperty(slug)) {
                 anchorOccurances[slug] += 1;
@@ -143,7 +199,7 @@ async function generateTocText(doc: TextDocument): Promise<string> {
                 let row = [
                     docConfig.tab.repeat(relativeLvl),
                     (tocConfig.orderedList ? (orderedListMarkerIsOne ? '1' : ++order[relativeLvl]) + '.' : tocConfig.listMarker) + ' ',
-                    tocConfig.plaintext ? entryText : `[${entryText}](#${slug})`
+                    tocConfig.plaintext ? headingText : `[${headingText}](#${slug})`
                 ];
                 toc.push(row.join(''));
                 if (tocConfig.orderedList) order.fill(0, relativeLvl + 1);
@@ -265,8 +321,8 @@ function getText(range: Range): string {
 
 export function buildToc(doc: TextDocument) {
     let lines = doc.getText()
-        .replace(/^( {0,3}|\t)```[\W\w]+?^( {0,3}|\t)```/gm, '')  //// Remove code blocks (and #603)
-        .replace(/<!-- omit in (toc|TOC) -->/g, '&lt; omit in toc &gt;')  //// Escape magic comment
+        .replace(/^( {0,3}|\t)```[\w \+]*$[\w\W]+?^( {0,3}|\t)``` *$/gm, '')  //// Remove fenced code blocks (and #603, #675)
+        .replace(/<!-- omit in (toc|TOC) -->/g, '&lt; omit in toc &gt;')      //// Escape magic comment
         .replace(/<!--[\W\w]+?-->/, '')                           //// Remove comments
         .replace(/^---[\W\w]+?(\r?\n)---/, '')                    //// Remove YAML front matter
         .split(/\r?\n/g);
@@ -276,6 +332,7 @@ export function buildToc(doc: TextDocument) {
         if (
             i < arr.length - 1
             && lineText.match(/^ {0,3}\S.*$/)
+            && lineText.replace(/[ -]/g, '').length > 0  //// #629
             && arr[i + 1].match(/^ {0,3}(=+|-{2,}) *$/)
         ) {
             arr[i] = (arr[i + 1].includes('=') ? '# ' : '## ') + lineText;

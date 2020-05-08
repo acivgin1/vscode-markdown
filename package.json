@@ -3,7 +3,7 @@
     "displayName": "%ext.displayName%",
     "description": "%ext.description%",
     "icon": "images/Markdown-mark.png",
-    "version": "2.7.0",
+    "version": "2.8.0",
     "publisher": "yzhang",
     "engines": {
         "vscode": "^1.38.0"
@@ -37,6 +37,11 @@
             {
                 "command": "markdown.extension.toc.update",
                 "title": "%command.toc.update.title%",
+                "category": "Markdown All in One"
+            },
+            {
+                "command": "markdown.extension.toc.addSecNumbers",
+                "title": "%command.toc.addSecNumbers.title%",
                 "category": "Markdown All in One"
             },
             {
@@ -231,6 +236,11 @@
                     "description": "%config.list.indentationSize.description%",
                     "scope": "resource"
                 },
+                "markdown.extension.math.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "%config.math.enabled%"
+                },
                 "markdown.extension.orderedList.autoRenumber": {
                     "type": "boolean",
                     "default": true,
@@ -324,10 +334,15 @@
                     "default": true,
                     "description": "%config.toc.downcaseLink.description%"
                 },
-                "markdown.extension.toc.githubCompatibility": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "%config.toc.githubCompatibility.description%"
+                "markdown.extension.toc.slugifyMode": {
+                    "type": "string",
+                    "default": "vscode",
+                    "enum": [
+                        "github",
+                        "gitlab",
+                        "vscode"
+                    ],
+                    "description": "%config.toc.slugifyMode.description%"
                 },
                 "markdown.extension.toc.levels": {
                     "type": "string",
@@ -405,9 +420,8 @@
         "highlight.js": "^9.15.6",
         "image-size": "^0.7.4",
         "markdown-it": "^10.0.0",
-        "markdown-it-footnote": "^3.0.2",
         "markdown-it-task-lists": "^2.1.1",
-        "string-similarity": "^3.0.0"
+        "string-similarity": "^4.0.1"
     },
     "devDependencies": {
         "@types/highlight.js": "^9.12.3",
@@ -417,11 +431,11 @@
         "@types/node": "^11.11.3",
         "@types/vscode": "1.38.0",
         "glob": "^7.1.4",
-        "mocha": "^6.2.0",
-        "ts-loader": "^6.0.4",
+        "mocha": "^7.1.1",
+        "ts-loader": "^6.2.2",
         "typescript": "^3.5.2",
         "vscode-test": "^1.2.3",
-        "webpack": "^4.41.5",
-        "webpack-cli": "^3.3.10"
+        "webpack": "^4.42.1",
+        "webpack-cli": "^3.3.11"
     }
 }
