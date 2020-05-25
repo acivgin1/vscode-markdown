@@ -3,7 +3,7 @@
     "displayName": "%ext.displayName%",
     "description": "%ext.description%",
     "icon": "images/Markdown-mark.png",
-    "version": "2.8.0",
+    "version": "3.0.0",
     "publisher": "yzhang",
     "engines": {
         "vscode": "^1.38.0"
@@ -42,6 +42,11 @@
             {
                 "command": "markdown.extension.toc.addSecNumbers",
                 "title": "%command.toc.addSecNumbers.title%",
+                "category": "Markdown All in One"
+            },
+            {
+                "command": "markdown.extension.toc.removeSecNumbers",
+                "title": "%command.toc.removeSecNumbers.title%",
                 "category": "Markdown All in One"
             },
             {
@@ -336,7 +341,7 @@
                 },
                 "markdown.extension.toc.slugifyMode": {
                     "type": "string",
-                    "default": "vscode",
+                    "default": "github",
                     "enum": [
                         "github",
                         "gitlab",

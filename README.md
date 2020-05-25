@@ -1,4 +1,4 @@
-# Markdown Support for Visual Studio Code
+# Markdown Support for Visual Studio Code <!-- omit in toc -->
 
 [![version](https://img.shields.io/vscode-marketplace/v/yzhang.markdown-all-in-one.svg?style=flat-square&label=vscode%20marketplace)](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
 [![installs](https://img.shields.io/vscode-marketplace/d/yzhang.markdown-all-in-one.svg?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
@@ -8,109 +8,142 @@
 
 All you need for Markdown (keyboard shortcuts, table of contents, auto preview and more).
 
+#### Table of contents  <!-- omit in toc -->
+
+- [Features](#features)
+  - [Keyboard shortcuts](#keyboard-shortcuts)
+  - [Table of contents](#table-of-contents)
+  - [List editing](#list-editing)
+  - [Print Markdown to HTML](#print-markdown-to-html)
+  - [GitHub Flavored Markdown](#github-flavored-markdown)
+  - [Math](#math)
+  - [Auto completions](#auto-completions)
+  - [Others](#others)
+- [Available Commands](#available-commands)
+- [Keyboard Shortcuts](#keyboard-shortcuts-1)
+- [Supported Settings](#supported-settings)
+- [FAQ](#faq)
+- [Changelog](#changelog)
+- [Latest Development Build](#latest-development-build)
+- [Contributing](#contributing)
+- [Related](#related)
+
 ## Features
 
-- **Keyboard shortcuts** (toggle bold, italic, code span, strikethrough and heading)
+### Keyboard shortcuts
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/toggle-bold.gif" alt="toggle bold gif" width="282px"></p>
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/toggle-bold.gif" alt="toggle bold gif" width="282px"></p>
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/check-task-list.gif" alt="check task list" width="240px"></p>
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/check-task-list.gif" alt="check task list" width="240px"></p>
 
-  See full key binding list in the [keyboard shortcuts](#keyboard-shortcuts) section
+See full key binding list in the [keyboard shortcuts](#keyboard-shortcuts) section
 
-- **Table of contents**
+### Table of contents
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/toc.png" alt="toc" width="305px"></p>
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/toc.png" alt="toc" width="305px"></p>
 
-  - The indentation rule (tab or spaces) of TOC will be the same of your current file (find it in the right bottom corner)
+- The TOC is automatically updated on file save. To disable please change the `toc.updateOnSave` option.
 
-  - To make TOC compatible with GitHub or GitLab, set option `slugifyMode` accordingly
+- The indentation type (tab or spaces) of TOC can be configured per file (find it in the right bottom corner)
 
-  - Use `<!-- omit in toc -->` to ignore a specific heading in TOC  
-    (It can also be placed above a heading)
+  *Note*: be sure to also check the `list.indentationSize` option
 
-  - You can also use the `omittedFromToc` setting to omit some headings (and their subheadings) from TOC:
-    ```js
-    // In your settings.json
-    "markdown.extension.toc.omittedFromToc": {
-      // Use a path relative to your workspace.
-      "README.md": [
-          "# Introduction",
-          "## Also omitted",
-      ],
-      // Or an absolute path for standalone files.
-      "/home/foo/Documents/todo-list.md": [
-        "## Shame list (I'll never do these)",
-      ]
-    }
-    ```
-    Note: headings underlined with `===` or `---` can also be omitted, just put their `# ` and `## ` versions in the setting, respectively.
+- To make TOC compatible with GitHub or GitLab, set option `slugifyMode` accordingly
 
-- **List editing**
+- Use `<!-- omit in toc -->` to ignore a specific heading in TOC  
+  (It can also be placed above a heading)
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/on-enter-key.gif" alt="on enter key" width="214px"></p>
+- You can also use the `omittedFromToc` setting to omit some headings (and their subheadings) from TOC:
+  ```js
+  // In your settings.json
+  "markdown.extension.toc.omittedFromToc": {
+    // Use a path relative to your workspace.
+    "README.md": [
+        "# Introduction",
+        "## Also omitted",
+    ],
+    // Or an absolute path for standalone files.
+    "/home/foo/Documents/todo-list.md": [
+      "## Shame list (I'll never do these)",
+    ]
+  }
+  ```
+  *Note*: headings underlined with `===` or `---` can also be omitted, just put their `# ` and `## ` versions in the setting, respectively.
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/tab-backspace.gif" alt="on tab/backspace key" width="214px"></p>
+- Easily add/update/remove section numbers
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/fix-marker.gif" alt="fix ordered list markers" width="214px"></p>
+  <img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/section-numbers.gif" alt="section numbers" width="768px">
 
-- **Print Markdown to HTML**
+### List editing
 
-  - Command `Markdown: Print current document to HTML`
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/on-enter-key.gif" alt="on enter key" width="214px"></p>
 
-  - Compatible with [Markdown Footnotes](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-footnotes)
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/tab-backspace.gif" alt="on tab/backspace key" width="214px"></p>
 
-  - It's recommended to print the exported HTML to PDF with browser (e.g. Chrome) if you want to share your documents with others
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/fix-marker.gif" alt="fix ordered list markers" width="214px"></p>
 
-- **GitHub Flavored Markdown**
+### Print Markdown to HTML
 
-  - Table formatter
+- Command `Markdown: Print current document to HTML`
 
-    <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/table-formatter.gif" alt="table formatter" width="246px"></p>
+- Compatible with other installed Markdown plugins (e.g. [Markdown Footnotes](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-footnotes))
+  The exported HTML should look the same as inside VSCode.
 
-    (Note that the keybinding is <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd> on Linux)
+- Plain links to `.md` files will be converted to `.html`.
 
-  - Task list
+- It's recommended to print the exported HTML to PDF with browser (e.g. Chrome) if you want to share your documents with others.
 
-- **Math**
+### GitHub Flavored Markdown
 
-  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/math.png" alt="math" width="544px"></p>
+- Table formatter
 
-  Please use [Markdown+Math](https://marketplace.visualstudio.com/items?itemName=goessner.mdmath) for dedicated math support. Be sure to disable `math.enabled` option of this extension.
+  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/table-formatter.gif" alt="table formatter" width="246px"></p>
 
-- **Auto completions**
+  (Note that the keybinding is <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd> on Linux)
 
-  Tip: also support the option `completion.root`
+- Task list
 
-  - Images/Files
+### Math
 
-    <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/image-completions.png" alt="image completions" width="351px"></p>
+<p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/math.png" alt="math" width="544px"></p>
 
-  - Math functions
+Please use [Markdown+Math](https://marketplace.visualstudio.com/items?itemName=goessner.mdmath) for dedicated math support. Be sure to disable `math.enabled` option of this extension.
 
-    <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/math-completions.png" alt="math completions" width="154px"></p>
+### Auto completions
 
-  - Reference links
+Tip: also support the option `completion.root`
 
-    <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/reference-link.png" alt="reference links" width="301px"></p>
+- Images/Files (respects option `search.exclude`)
 
-- **Others**
+  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/image-completions.png" alt="image completions" width="351px"></p>
 
-  - Paste link on selected text
+- Math functions (including option `katex.macros`)
 
-    <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/paste-link.gif" alt="paste link" width="342px"></p>
+  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/math-completions.png" alt="math completions" width="154px"></p>
 
-  - Override "Open Preview" keybinding with "Toggle Preview", which means you can close preview using the same keybinding (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd> <kbd>V</kbd>).
+- Reference links
+
+  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/reference-link.png" alt="reference links" width="301px"></p>
+
+### Others
+
+- Paste link on selected text
+
+  <p><img src="https://github.com/yzhang-gh/vscode-markdown/raw/master/images/gifs/paste-link.gif" alt="paste link" width="342px"></p>
+
+- Override "Open Preview" keybinding with "Toggle Preview", which means you can close preview using the same keybinding (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd> <kbd>V</kbd>).
 
 ## Available Commands
 
-- Markdown: Create Table of Contents
-- Markdown: Update Table of Contents
-- Markdown: Toggle code span
-- Markdown: Toggle code block
-- Markdown: Print current document to HTML
-- Markdown: Toggle math environment
-- Markdown: Toggle list
+- Markdown All in One: Create Table of Contents
+- Markdown All in One: Update Table of Contents
+- Markdown All in One: Add/Update section numbers
+- Markdown All in One: Remove section numbers
+- Markdown All in One: Toggle code span
+- Markdown All in One: Toggle code block
+- Markdown All in One: Print current document to HTML
+- Markdown All in One: Toggle math environment
+- Markdown All in One: Toggle list
 
 ## Keyboard Shortcuts
 
@@ -153,7 +186,7 @@ All you need for Markdown (keyboard shortcuts, table of contents, auto preview a
 | `markdown.extension.syntax.plainTheme`             | `false`    | A distraction-free theme                                                                         |
 | `markdown.extension.tableFormatter.enabled`        | `true`     | Enable GFM table formatter                                                                       |
 | `markdown.extension.toc.downcaseLink`              | `true`     | Force the TOC links to be lowercase                                                              |
-| `markdown.extension.toc.slugifyMode`               | `vscode`   | Slugify mode for TOC link generation                                                             |
+| `markdown.extension.toc.slugifyMode`               | `github`   | Slugify mode for TOC link generation (`vscode`, `github` or `gitlab`)                            |
 | `markdown.extension.toc.omittedFromToc`            | `{}`       | Lists of headings to omit by project file (e.g. `{ "README.md": ["# Introduction"] }`)           |
 | `markdown.extension.toc.levels`                    | `1..6`     | Control the heading levels to show in the table of contents.                                     |
 | `markdown.extension.toc.orderedList`               | `false`    | Use ordered list in the table of contents.                                                       |
