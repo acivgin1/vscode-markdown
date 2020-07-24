@@ -1,6 +1,56 @@
+### 3.1.0 (2020.06.20)
+
+- **New**: Option `print.includeVscodeStylesheets` ([#726](https://github.com/yzhang-gh/vscode-markdown/pull/726)). Thanks, [Gluck_S (@Glucksistemi)](https://github.com/Glucksistemi).
+- **New**: Option `syntax.decorationFileSizeLimit` ([#728](https://github.com/yzhang-gh/vscode-markdown/pull/728)). Thanks, [Rohit Patnaik (@quanticle)](https://github.com/quanticle).
+
+<!--  -->
+
+- **Fix**: Wrong mime type of SVG in exported HTML ([#694](https://github.com/yzhang-gh/vscode-markdown/issues/694)).
+- **Fix**: Heading numbering issues ([#695](https://github.com/yzhang-gh/vscode-markdown/issues/695), [#701](https://github.com/yzhang-gh/vscode-markdown/issues/701)).
+- **Fix**: TOC issues ([#555](https://github.com/yzhang-gh/vscode-markdown/issues/555), [#699](https://github.com/yzhang-gh/vscode-markdown/issues/699), [#706](https://github.com/yzhang-gh/vscode-markdown/issues/706))
+- **Fix**: Counterintuitive behavior of command `checkTaskList` ([#700](https://github.com/yzhang-gh/vscode-markdown/issues/700)).
+
+<!--  -->
+
+- **Other**: `README` improvements ([#709](https://github.com/yzhang-gh/vscode-markdown/pull/709)). Thanks, [Quang Vu (@vhquang)](https://github.com/vhquang).
+
+---
+
+### 3.0.0 (2020.05.24)
+
+#### Highlights
+
+<p><img src="images/gifs/section-numbers.gif" alt="section numbers" width="768px"></p>
+
+<p><img src="images/md-extension.png" alt="markdown extensions" width="1146px"></p>
+
+- **Breaking change**: Replace `toc.githubCompatibility` with `toc.slugifyMode`. Now GitLab-style TOC is supported ([#660](https://github.com/yzhang-gh/vscode-markdown/pull/660)). Thanks, [@BeeeWall](https://github.com/BeeeWall).
+
+<!--  -->
+
+- **New**: Command to add/update/remove numbering to headings ([#457](https://github.com/yzhang-gh/vscode-markdown/issues/457), [#555](https://github.com/yzhang-gh/vscode-markdown/issues/555)).
+- **New**: Automatically include other installed Markdown plugins when exporting Markdown to HTML ([#658](https://github.com/yzhang-gh/vscode-markdown/pull/658)). Thanks, [qiqiworld (@1354092549)](https://github.com/1354092549).
+- **New**: The links to `.md` files will be renamed to `.html` in the exported HTML ([#667](https://github.com/yzhang-gh/vscode-markdown/issues/667)).
+
+<!--  -->
+
+- **Fix**: Properly handle Markdown syntax in TOC entries ([#654](https://github.com/yzhang-gh/vscode-markdown/pull/654)).
+- **Fix**: An issue with `workspaceFolders` ([#666](https://github.com/yzhang-gh/vscode-markdown/issues/666)).
+- **Fix**: Slugify function `github` should downcase also non-Latin characters ([#670](https://github.com/yzhang-gh/vscode-markdown/pull/670)). Thanks, [lesha (@lesha-co)](https://github.com/lesha-co).
+- **Fix**: TOC issues ([#675](https://github.com/yzhang-gh/vscode-markdown/issues/675), [#683](https://github.com/yzhang-gh/vscode-markdown/issues/683)).
+- **Fix**: Table formatter fails if there are two identical tables ([#682](https://github.com/yzhang-gh/vscode-markdown/issues/682)).
+- **Fix**: CJ**K** characters in Markdown Tables ([#685](https://github.com/yzhang-gh/vscode-markdown/issues/685)).
+
+<!--  -->
+
+- **Other**: Expose `wrapBy` function ([#663](https://github.com/yzhang-gh/vscode-markdown/issues/663)).
+- **Other**: `README` improvements ([#681](https://github.com/yzhang-gh/vscode-markdown/pull/681)). Thanks, [Kaspar (@casaper)](https://github.com/casaper).
+
+---
+
 ### 2.8.0 (2020.04.10)
 
-- **New**: Path auto-completion now respects option `search.exclude` ([#614](https://github.com/yzhang-gh/vscode-markdown/issue/614)).
+- **New**: Path auto-completion now respects option `search.exclude` ([#614](https://github.com/yzhang-gh/vscode-markdown/issues/614)).
 - **New**: Suggest `katex.macros` in math environments ([#633](https://github.com/yzhang-gh/vscode-markdown/pull/633)). Thanks, [Y. Ding (@yd278)](https://github.com/yd278).
 - **New**: Option `math.enabled`.
 
@@ -10,7 +60,7 @@
 - **Fix**: TOC issues ([#593](https://github.com/yzhang-gh/vscode-markdown/issues/593), [#603](https://github.com/yzhang-gh/vscode-markdown/issues/603), [#629](https://github.com/yzhang-gh/vscode-markdown/issues/629)).
 - **Fix**: Table formatter for Thai characters ([#602](https://github.com/yzhang-gh/vscode-markdown/pull/602)). Thanks, [Nutchanon Ninyawee (@CircleOnCircles)](https://github.com/CircleOnCircles).
 - **Fix**: Single column table formatting ([#604](https://github.com/yzhang-gh/vscode-markdown/pull/604)). Thanks, [@chnicholas](https://github.com/chnicholas).
-- **Fix**: Issues with option `omitFromToc` ([#644](https://github.com/yzhang-gh/vscode-markdown/issue/644)).
+- **Fix**: Issues with option `omitFromToc` ([#644](https://github.com/yzhang-gh/vscode-markdown/issues/644)).
 
 <!--  -->
 

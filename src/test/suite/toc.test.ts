@@ -78,6 +78,42 @@ suite("TOC.", () => {
             new Selection(0, 0, 0, 0)).then(done, done);
     });
 
+    test("Update (ordered list)", done => {
+        testCommand('markdown.extension.toc.update',
+            {
+                "markdown.extension.toc.orderedList": true
+            },
+            [
+                '# Section 1',
+                '',
+                '## Section 1.1',
+                '',
+                '# Section 2',
+                '',
+                '## Section 2.1',
+                '',
+                '1. [Section 1](#section-1)',
+                '   1. [Section 1.1](#section-11)',
+                '2. [Section 2](#section-2)'
+            ],
+            new Selection(0, 0, 0, 0),
+            [
+                '# Section 1',
+                '',
+                '## Section 1.1',
+                '',
+                '# Section 2',
+                '',
+                '## Section 2.1',
+                '',
+                '1. [Section 1](#section-1)',
+                '   1. [Section 1.1](#section-11)',
+                '2. [Section 2](#section-2)',
+                '   1. [Section 2.1](#section-21)'
+            ],
+            new Selection(0, 0, 0, 0)).then(done, done);
+    });
+
     test("Create (levels 2..3)", done => {
         testCommand('markdown.extension.toc.create',
             {
@@ -191,7 +227,7 @@ suite("TOC.", () => {
                 '',
                 '# Section 2',
                 '',
-                '- [Section 中文](#section-%e4%b8%ad%e6%96%87)',
+                '- [Section 中文](#section-中文)',
                 '  - [Section 1.1](#section-11)',
                 '- [Section 2](#section-2)'
             ],
@@ -575,5 +611,170 @@ suite("TOC.", () => {
                 '- [Test + Heading](#test-heading)'
             ],
             new Selection(2, 33, 2, 33)).then(done, done);
+    });
+
+    test("Add section numbers", done => {
+        testCommand('markdown.extension.toc.addSecNumbers', {},
+            [
+                '---',
+                'title: test',
+                '---',
+                '# Heading 1',
+                '##  Heading 1.1',
+                '   Heading 2',
+                '===',
+                '```markdown',
+                '# _Heading 3',
+                '```',
+                '## Heading 2.1',
+                '## _Heading 2.2 <!-- omit in toc -->',
+                '<!--',
+                '## _Heading 2.3',
+                '-->',
+                '## Heading 2.2',
+            ],
+            new Selection(0, 0, 0, 0),
+            [
+                '---',
+                'title: test',
+                '---',
+                '# 1. Heading 1',
+                '##  1.1. Heading 1.1',
+                '   2. Heading 2',
+                '===',
+                '```markdown',
+                '# _Heading 3',
+                '```',
+                '## 2.1. Heading 2.1',
+                '## _Heading 2.2 <!-- omit in toc -->',
+                '<!--',
+                '## _Heading 2.3',
+                '-->',
+                '## 2.2. Heading 2.2',
+            ],
+            new Selection(0, 0, 0, 0)).then(done, done);
+    });
+
+    test("Update section numbers", done => {
+        testCommand('markdown.extension.toc.addSecNumbers', {},
+            [
+                '---',
+                'title: test',
+                '---',
+                '# Heading 1',
+                '## 1.2. Heading 1.1',
+                '2. Heading 2',
+                '===',
+                '```markdown',
+                '# _Heading 3',
+                '```',
+                '## 2.1.1. Heading 2.1',
+                '## _Heading 2.2 <!-- omit in toc -->',
+                '<!--',
+                '## _Heading 2.3',
+                '-->',
+                '## 2.2. Heading 2.2',
+            ],
+            new Selection(0, 0, 0, 0),
+            [
+                '---',
+                'title: test',
+                '---',
+                '# 1. Heading 1',
+                '## 1.1. Heading 1.1',
+                '2. Heading 2',
+                '===',
+                '```markdown',
+                '# _Heading 3',
+                '```',
+                '## 2.1. Heading 2.1',
+                '## _Heading 2.2 <!-- omit in toc -->',
+                '<!--',
+                '## _Heading 2.3',
+                '-->',
+                '## 2.2. Heading 2.2',
+            ],
+            new Selection(0, 0, 0, 0)).then(done, done);
+    });
+
+    test("Remove section numbers", done => {
+        testCommand('markdown.extension.toc.removeSecNumbers', {},
+            [
+                '---',
+                'title: test',
+                '---',
+                '# 1. Heading 1',
+                '## 1.1. Heading 1.1',
+                '2. Heading 2',
+                '===',
+                '```markdown',
+                '# _Heading 3',
+                '```',
+                '## 2.1. Heading 2.1',
+                '## _Heading 2.2 <!-- omit in toc -->',
+                '<!--',
+                '## _Heading 2.3',
+                '-->',
+                '## 2.2. Heading 2.2',
+            ],
+            new Selection(0, 0, 0, 0),
+            [
+                '---',
+                'title: test',
+                '---',
+                '# Heading 1',
+                '## Heading 1.1',
+                'Heading 2',
+                '===',
+                '```markdown',
+                '# _Heading 3',
+                '```',
+                '## Heading 2.1',
+                '## _Heading 2.2 <!-- omit in toc -->',
+                '<!--',
+                '## _Heading 2.3',
+                '-->',
+                '## Heading 2.2',
+            ],
+            new Selection(0, 0, 0, 0)).then(done, done);
+    });
+
+    test("Section numbering starting level", done => {
+        testCommand('markdown.extension.toc.addSecNumbers', {},
+            [
+                '# Heading <!-- omit in toc -->',
+                '## Heading 1',
+                '## Heading 2',
+                '## Heading 3',
+            ],
+            new Selection(0, 0, 0, 0),
+            [
+                '# Heading <!-- omit in toc -->',
+                '## 1. Heading 1',
+                '## 2. Heading 2',
+                '## 3. Heading 3',
+            ],
+            new Selection(0, 0, 0, 0)).then(done, done);
+    });
+
+    test("Section numbering and `toc.levels`", done => {
+        testCommand('markdown.extension.toc.addSecNumbers',
+            {
+                "markdown.extension.toc.levels": "2..6"
+            },
+            [
+                '# Heading',
+                '## Heading 1',
+                '## Heading 2',
+                '## Heading 3',
+            ],
+            new Selection(0, 0, 0, 0),
+            [
+                '# Heading',
+                '## 1. Heading 1',
+                '## 2. Heading 2',
+                '## 3. Heading 3',
+            ],
+            new Selection(0, 0, 0, 0)).then(done, done);
     });
 });

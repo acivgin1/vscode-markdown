@@ -3,7 +3,7 @@
 import * as path from 'path';
 import * as stringSimilarity from 'string-similarity';
 import { CancellationToken, CodeLens, CodeLensProvider, commands, EndOfLine, ExtensionContext, languages, Range, TextDocument, TextDocumentWillSaveEvent, window, workspace, WorkspaceEdit } from 'vscode';
-import { isMdEditor, mdDocSelector, mdHeadingToPlaintext, slugify } from './util';
+import { isMdEditor, mdDocSelector, mdHeadingToPlaintext, REGEX_FENCED_CODE_BLOCK, slugify } from './util';
 
 /**
  * Workspace config
@@ -11,13 +11,12 @@ import { isMdEditor, mdDocSelector, mdHeadingToPlaintext, slugify } from './util
 const docConfig = { tab: '  ', eol: '\r\n' };
 const tocConfig = { startDepth: 1, endDepth: 6, listMarker: '-', orderedList: false, updateOnSave: false, plaintext: false, tabSize: 2 };
 
-const REGEX_SECNUMBER = /^(\s{0,3}#+ +)((?:\d\.)* )?(.*)/;
-
 export function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('markdown.extension.toc.create', createToc),
         commands.registerCommand('markdown.extension.toc.update', updateToc),
         commands.registerCommand('markdown.extension.toc.addSecNumbers', addSectionNumbers),
+        commands.registerCommand('markdown.extension.toc.removeSecNumbers', removeSectionNumbers),
         workspace.onWillSaveTextDocument(onWillSave),
         languages.registerCodeLensProvider(mdDocSelector, new TocCodeLensProvider())
     );
@@ -73,33 +72,51 @@ function addSectionNumbers() {
     if (!isMdEditor(editor)) {
         return;
     }
-    const activeDoc = editor.document;
+    const doc = editor.document;
 
-    let isInCodeBlocks = false;
+    loadTocConfig();
+    const toc = buildToc(editor.document);
+    if (toc === null || toc === undefined || toc.length < 1) return;
+    const startDepth = Math.max(tocConfig.startDepth, Math.min(...toc.map(h => h.level)));
+
     let secNumbers = [0, 0, 0, 0, 0, 0];
     let edit = new WorkspaceEdit();
-    for (let i = 0; i < activeDoc.lineCount; i++) {
-        const lineText = activeDoc.lineAt(i).text;
-        if (!isInCodeBlocks) {
-            if (/^ {0,3}```[\w \+]*$/.test(lineText)) {
-                isInCodeBlocks = true;
-            } else {
-                if (REGEX_SECNUMBER.test(lineText)) {
-                    const newText = lineText.replace(REGEX_SECNUMBER, (_, g1, _g2, g3) => {
-                        const level = g1.trim().length;
-                        secNumbers[level - 1] += 1;
-                        const secNumStr = [...Array(level).keys()].map(num => `${secNumbers[num]}.`).join('');
-                        return `${g1}${secNumStr} ${g3}`;
-                    });
-                    edit.replace(activeDoc.uri, activeDoc.lineAt(i).range, newText);
-                }
-            }
-        } else {
-            if (/^\s{0,3}```\s*$/.test(lineText)) {
-                isInCodeBlocks = false;
-            }
-        }
+    toc.forEach(entry => {
+        const level = entry.level;
+        const lineNum = entry.lineNum;
+
+        if (level < startDepth) return;
+
+        secNumbers[level - 1] += 1;
+        secNumbers.fill(0, level);
+        const secNumStr = [...Array(level - startDepth + 1).keys()].map(num => `${secNumbers[num + startDepth - 1]}.`).join('');
+
+        const lineText = doc.lineAt(lineNum).text;
+        const newText = lineText.includes('#')
+            ? lineText.replace(/^(\s{0,3}#+ +)((?:\d{1,2}\.)* )?(.*)/, (_, g1, _g2, g3) => `${g1}${secNumStr} ${g3}`)
+            : lineText.replace(/^(\s{0,3})((?:\d{1,2}\.)* )?(.*)/, (_, g1, _g2, g3) => `${g1}${secNumStr} ${g3}`);
+        edit.replace(doc.uri, doc.lineAt(lineNum).range, newText);
+    });
+
+    return workspace.applyEdit(edit);
+}
+
+function removeSectionNumbers() {
+    const editor = window.activeTextEditor;
+    if (!isMdEditor(editor)) {
+        return;
     }
+    const doc = editor.document;
+    const toc = buildToc(editor.document);
+    let edit = new WorkspaceEdit();
+    toc.forEach(entry => {
+        const lineNum = entry.lineNum;
+        const lineText = doc.lineAt(lineNum).text;
+        const newText = lineText.includes('#')
+            ? lineText.replace(/^(\s{0,3}#+ +)((?:\d{1,2}\.)* )?(.*)/, (_, g1, _g2, g3) => `${g1}${g3}`)
+            : lineText.replace(/^(\s{0,3})((?:\d{1,2}\.)* )?(.*)/, (_, g1, _g2, g3) => `${g1}${g3}`);
+        edit.replace(doc.uri, doc.lineAt(lineNum).range, newText);
+    });
 
     return workspace.applyEdit(edit);
 }
@@ -161,7 +178,7 @@ async function generateTocText(doc: TextDocument): Promise<string> {
     let tocEntries = buildToc(doc);
     if (tocEntries === null || tocEntries === undefined || tocEntries.length < 1) return '';
 
-    let startDepth = Math.max(tocConfig.startDepth, Math.min.apply(null, tocEntries.map(h => h.level)));
+    const startDepth = Math.max(tocConfig.startDepth, Math.min(...tocEntries.map(h => h.level)));
     let order = new Array(tocConfig.endDepth - startDepth + 1).fill(0); // Used for ordered list
 
     let anchorOccurances = {};
@@ -178,7 +195,7 @@ async function generateTocText(doc: TextDocument): Promise<string> {
             //// `[text][label]` → `text`
             headingText = headingText.replace(/\[([^\]]*)\]\[[^\)]*\]/, (_, g1) => g1);
 
-            let slug = slugify(mdHeadingToPlaintext(entry.text));
+            let slug = slugify(entry.text);
 
             if (anchorOccurances.hasOwnProperty(slug)) {
                 anchorOccurances[slug] += 1;
@@ -240,8 +257,8 @@ async function detectTocRanges(doc: TextDocument): Promise<[Array<Range>, string
                 continue;
             }
         } else {
-            //// GitHub issue #304 & #549
-            if (!(firstLine.includes('](#') && firstLine.trim().split(' ')[1].startsWith('['))) {
+            //// GitHub issue #304 (must contain `#`), #549 and #683 (shouldn't contain text other than links)
+            if (!/^([-\*+]|[0-9]+[.)]) +\[[^\]]+\]\(\#[^\)]+\)$/.test(firstLine)) {
                 continue;
             }
         }
@@ -320,13 +337,15 @@ function getText(range: Range): string {
 }
 
 export function buildToc(doc: TextDocument) {
+    const replacer = (foundStr: string) => foundStr.replace(/[^\r\n]/g, '');
     let lines = doc.getText()
-        .replace(/^( {0,3}|\t)```[\w \+]*$[\w\W]+?^( {0,3}|\t)``` *$/gm, '')  //// Remove fenced code blocks (and #603, #675)
-        .replace(/<!-- omit in (toc|TOC) -->/g, '&lt; omit in toc &gt;')      //// Escape magic comment
-        .replace(/<!--[\W\w]+?-->/, '')                           //// Remove comments
-        .replace(/^---[\W\w]+?(\r?\n)---/, '')                    //// Remove YAML front matter
+        .replace(REGEX_FENCED_CODE_BLOCK, replacer)                 //// Remove fenced code blocks (and #603, #675)
+        .replace(/<!-- omit in (toc|TOC) -->/g, '&lt; omit in toc &gt;')    //// Escape magic comment
+        .replace(/<!--[\W\w]+?-->/g, replacer)                      //// Remove comments
+        .replace(/^---[\W\w]+?(\r?\n)---/, replacer)                //// Remove YAML front matter
         .split(/\r?\n/g);
 
+    //// Some special cases that we need to look at multiple lines to decide
     lines.forEach((lineText, i, arr) => {
         //// Transform setext headings to ATX headings
         if (
@@ -346,20 +365,25 @@ export function buildToc(doc: TextDocument) {
         }
     });
 
-    const toc = lines.filter(lineText => {
-        return lineText.trim().startsWith('#')
+    const toc = lines.map((lineText, index) => {
+        if (
+            lineText.trim().startsWith('#')
             && !lineText.startsWith('    ')  //// The opening `#` character may be indented 0-3 spaces
             && lineText.includes('# ')
-            && !lineText.includes('&lt; omit in toc &gt;');
-    }).map(lineText => {
-        lineText = lineText.replace(/^ +/, '');
-        const matches = /^(#+) (.*)/.exec(lineText);
-        const entry = {
-            level: matches[1].length,
-            text: matches[2].replace(/#+$/, '').trim()
-        };
-        return entry;
-    });
+            && !lineText.includes('&lt; omit in toc &gt;')
+        ) {
+            lineText = lineText.replace(/^ +/, '');
+            const matches = /^(#+) (.*)/.exec(lineText);
+            const entry = {
+                level: matches[1].length,
+                text: matches[2].replace(/#+$/, '').trim(),
+                lineNum: index,
+            };
+            return entry;
+        } else {
+            return null;
+        }
+    }).filter(entry => entry !== null);
 
     return toc;
 }
