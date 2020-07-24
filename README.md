@@ -1,32 +1,28 @@
 # Markdown Support for Visual Studio Code <!-- omit in toc -->
 
-[![version](https://img.shields.io/vscode-marketplace/v/yzhang.markdown-all-in-one.svg?style=flat-square&label=vscode%20marketplace)](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
-[![installs](https://img.shields.io/vscode-marketplace/d/yzhang.markdown-all-in-one.svg?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yzhang-gh/vscode-markdown/CI?style=flat-square)](https://github.com/yzhang-gh/vscode-markdown/actions)
-[![GitHub stars](https://img.shields.io/github/stars/yzhang-gh/vscode-markdown.svg?style=flat-square&label=github%20stars)](https://github.com/yzhang-gh/vscode-markdown)
-[![GitHub Contributors](https://img.shields.io/github/contributors/yzhang-gh/vscode-markdown.svg?style=flat-square)](https://github.com/yzhang-gh/vscode-markdown/graphs/contributors)
+## This is a fork of Markdown all in one that contains code for creating collapsible sections <!-- omit in toc -->
 
 All you need for Markdown (keyboard shortcuts, table of contents, auto preview and more).
 
 #### Table of contents  <!-- omit in toc -->
 
-- [Features](#features)
-  - [Keyboard shortcuts](#keyboard-shortcuts)
-  - [Table of contents](#table-of-contents)
-  - [List editing](#list-editing)
-  - [Print Markdown to HTML](#print-markdown-to-html)
-  - [GitHub Flavored Markdown](#github-flavored-markdown)
-  - [Math](#math)
-  - [Auto completions](#auto-completions)
-  - [Others](#others)
-- [Available Commands](#available-commands)
-- [Keyboard Shortcuts](#keyboard-shortcuts-1)
-- [Supported Settings](#supported-settings)
-- [FAQ](#faq)
-- [Changelog](#changelog)
-- [Latest Development Build](#latest-development-build)
-- [Contributing](#contributing)
-- [Related](#related)
+1. [Features](#features)
+   1. [Keyboard shortcuts](#keyboard-shortcuts)
+   2. [Table of contents](#table-of-contents)
+   3. [List editing](#list-editing)
+   4. [Print Markdown to HTML](#print-markdown-to-html)
+   5. [GitHub Flavored Markdown](#github-flavored-markdown)
+   6. [Math](#math)
+   7. [Auto completions](#auto-completions)
+   8. [Others](#others)
+2. [Available Commands](#available-commands)
+3. [Keyboard Shortcuts](#keyboard-shortcuts-1)
+4. [Supported Settings](#supported-settings)
+5. [FAQ](#faq)
+6. [Changelog](#changelog)
+7. [Latest Development Build](#latest-development-build)
+8. [Contributing](#contributing)
+9. [Related](#related)
 
 ## Features
 
@@ -53,7 +49,7 @@ See full key binding list in the [keyboard shortcuts](#keyboard-shortcuts-1) sec
 
 - Three ways to **control which headings are present** in the TOC:
 
-  1. Use `<!-- omit in toc -->` to ignore a specific heading in TOC  
+  1. Use `<!-- omit in toc -->` to ignore a specific heading in TOC
     (It can also be placed above a heading)
 
   2. Use `toc.levels` setting.
@@ -209,7 +205,7 @@ Tip: also support the option `completion.root`
 ## FAQ
 
 - **Error "command 'markdown.extension.onXXXKey' not found"**
-  
+
   In most cases, it is because VSCode needs a few seconds to load this extension when you open a Markdown file *for the first time*. (You will see a message "Activating Extensions..." on the status bar.)
 
   If you still see this "command not found" error after waiting for a long time, please try to restart VSCode (or reinstall this extension if needed). Otherwise feel free to open a new issue on GitHub.
