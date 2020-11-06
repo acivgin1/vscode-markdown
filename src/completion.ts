@@ -400,10 +400,12 @@ class MdCompletionItemProvider implements CompletionItemProvider {
         });
 
         let excludePatterns = ['**/node_modules', '**/bower_components', '**/*.code-search'];
-        const configExclude = workspace.getConfiguration('search', resource).get<object>('exclude');
-        for (const key of Object.keys(configExclude)) {
-            if (configExclude[key] === true) {
-                excludePatterns.push(key);
+        if (workspace.getConfiguration('markdown.extension.completion', resource).get<boolean>('respectVscodeSearchExclude')) {
+            const configExclude = workspace.getConfiguration('search', resource).get<object>('exclude');
+            for (const key of Object.keys(configExclude)) {
+                if (configExclude[key] === true) {
+                    excludePatterns.push(key);
+                }
             }
         }
 
@@ -467,6 +469,7 @@ class MdCompletionItemProvider implements CompletionItemProvider {
                 }
             });
         } else if (
+            //// ends with an odd number of backslashes
             (matches = lineTextBefore.match(/\\+$/)) !== null
             && matches[0].length % 2 !== 0
         ) {

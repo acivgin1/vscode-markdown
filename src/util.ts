@@ -3,7 +3,8 @@
 import * as fs from 'fs';
 import { commands, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import localize from './localize';
-import { mdEngine } from './markdownEngine';
+import { commonmarkEngine, mdEngine } from './markdownEngine';
+import { decodeHTML } from 'entities';
 
 /* ┌────────┐
    │ Others │
@@ -16,14 +17,13 @@ export function isMdEditor(editor: TextEditor) {
     return editor && editor.document && editor.document.languageId === 'markdown';
 }
 
+export const REGEX_FENCED_CODE_BLOCK = /^( {0,3}|\t)```[^`\r\n]*$[\w\W]+?^( {0,3}|\t)``` *$/gm;
+
 export function isInFencedCodeBlock(doc: TextDocument, lineNum: number): boolean {
     let textBefore = doc.getText(new Range(new Position(0, 0), new Position(lineNum, 0)));
-    let matches = textBefore.match(/^ {0,3}```[\w \+]*$/gm);
-    if (matches == null) {
-        return false;
-    } else {
-        return matches.length % 2 != 0;
-    }
+    textBefore = textBefore.replace(REGEX_FENCED_CODE_BLOCK, '').replace(/<!--[\W\w]+?-->/g, '');
+    //// So far `textBefore` should contain no valid fenced code block or comment
+    return /^( {0,3}|\t)```[^`\r\n]*$[\w\W]*$/gm.test(textBefore);
 }
 
 export function mathEnvCheck(doc: TextDocument, pos: Position): string {
@@ -53,9 +53,9 @@ export function mathEnvCheck(doc: TextDocument, pos: Position): string {
     }
 }
 
-const sizeLimit = 50000; // ~50 KB
 let fileSizesCache = {}
 export function isFileTooLarge(document: TextDocument): boolean {
+    const sizeLimit = workspace.getConfiguration('markdown.extension.syntax').get<number>('decorationFileSizeLimit');
     const filePath = document.uri.fsPath;
     if (!filePath || !fs.existsSync(filePath)) {
         return false;
@@ -101,53 +101,67 @@ export function showChangelog() {
    └─────────────────┘ */
 
 /**
- * Remove Markdown syntax (bold, italic, links etc.) in a heading
- * For example: `_italic_` -> `italic`
- * This function is used before `slugify`
- * 
- * (Escape syntax like `1.`)
- * 1. md.render(text)
- * 2. textInHtml(text)
- * (Unescape)
- * 
- * @param text
+ * Convert Markdown to plain text.
+ * Remove Markdown syntax (bold, italic, links etc.) in a heading.
+ * This function is only for the `github` and `gitlab` slugify functions.
+ *
+ * A Markdown heading may contain Markdown styles, e.g. `_italic_`.
+ * It can also have HTML tags, e.g. `<code>`.
+ * They should be converted to their plain text form first.
+ *
+ * What this function actually does:
+ * 1. Handle a few special cases.
+ * 2. `renderInline(text)`
+ * 3. `getTextInHtml(html)`
+ *
+ * @param text - A Markdown heading content.
  */
-export function mdHeadingToPlaintext(text: string) {
+function mdHeadingToPlaintext(text: string): string {
     //// Issue #515
     text = text.replace(/\[([^\]]*)\]\[[^\]]*\]/, (_, g1) => g1);
-    //// Escape leading `1.` and `1)` (#567, #585)
-    text = text.replace(/^([\d]+)(\.)/, (_, g1) => g1 + '%dot%');
-    text = text.replace(/^([\d]+)(\))/, (_, g1) => g1 + '%par%');
 
-    if (!mdEngine.cacheMd) {
-        return text;
-    }
+    // ! Use a clean CommonMark only engine to avoid interfering with plugins from other extensions.
+    // ! Use `renderInline` to avoid parsing the string as blocks accidentally.
+    // ! See #567, #585, #732, #792
+    const html = commonmarkEngine.engine.renderInline(text).replace(/\r?\n$/, '');
+    text = getTextInHtml(html);
 
-    const html = mdEngine.cacheMd.render(text).replace(/\r?\n$/, '');
-    text = textInHtml(html);
-
-    //// Unescape
-    text = text.replace('%dot%', '.');
-    text = text.replace('%par%', ')');
     return text;
 }
 
-//// Convert HTML entities (#175, #575)
-//// Strip HTML tags (#179)
-function textInHtml(html: string) {
-    //// HTML entities
-    let text = html.replace(/(&emsp;)/g, _ => ' ')
-        .replace(/(&quot;)/g, _ => '"')
-        .replace(/(&lt;)/g, _ => '<')
-        .replace(/(&gt;)/g, _ => '>')
-        .replace(/(&amp;)/g, _ => '&');
+/**
+ * Get plain text from an HTML string.
+ *
+ * This function is similar to `HTMLElement.innerText` getter. The differences are:
+ *
+ * * It only considers most common cases.
+ * * It preserves consecutive spaces.
+ *
+ * What this function actually does:
+ * 1. Strip paired tags (#179)
+ * 2. Strip empty elements
+ * 3. Decode HTML entities (#175, #575)
+ *
+ * @param html
+ */
+function getTextInHtml(html: string) {
+    let text = html;
     //// remove <!-- HTML comments -->
     text = text.replace(/(<!--[^>]*?-->)/g, '');
     //// remove HTML tags
-    while (/<(span|em|strong|a|p|code)[^>]*>(.*?)<\/\1>/.test(text)) {
-        text = text.replace(/<(span|em|strong|a|p|code)[^>]*>(.*?)<\/\1>/g, (_, _g1, g2) => g2)
+    while (/<(span|em|strong|a|p|code|kbd)[^>]*>(.*?)<\/\1>/.test(text)) {
+        text = text.replace(/<(span|em|strong|a|p|code|kbd)[^>]*>(.*?)<\/\1>/g, (_, _g1, g2) => g2)
     }
-    text = text.replace(/ +/g, ' ');
+
+    //// Remove common empty elements (aka. single tag).
+    //// https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
+    while (/<(br|img)[^>]*\/?>/.test(text)) {
+        text = text.replace(/<(br|img)[^>]*\/?>/g, '')
+    }
+
+    //// Decode HTML entities.
+    text = decodeHTML(text);
+
     return text;
 }
 
@@ -155,10 +169,22 @@ function textInHtml(html: string) {
    │ Slugify │
    └─────────┘ */
 
-// Converted from `/[^\p{Word}\- ]/u`
-// `\p{Word}` => ASCII plus Letter (Ll/Lm/Lo/Lt/Lu), Mark (Mc/Me/Mn), Number (Nd/Nl/No), Connector_Punctuation (Pc)
-const PUNCTUATION_REGEXP = /[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu;
+// Converted from Ruby regular expression `/[^\p{Word}\- ]/u`
+// `\p{Word}` => Letter (Ll/Lm/Lo/Lt/Lu), Mark (Mc/Me/Mn), Number (Nd/Nl), Connector_Punctuation (Pc)
+// ! It's weird that Ruby's `\p{Word}` actually does not include Category No.
+// https://ruby-doc.org/core/Regexp.html
+// https://rubular.com/r/ThqXAm370XRMz6
+/**
+ * The definition of punctuation from GitHub and GitLab.
+ */
+const PUNCTUATION_REGEXP = /[^\p{L}\p{M}\p{Nd}\p{Nl}\p{Pc}\- ]/gu;
 
+/**
+ * Slugify a string.
+ * @param heading - The string.
+ * @param mode - The slugify mode.
+ * @param downcase - `true` to force to convert all the characters to lowercase. Otherwise, `false`.
+ */
 export function slugify(heading: string, mode?: string, downcase?: boolean) {
     if (mode === undefined) {
         mode = workspace.getConfiguration('markdown.extension.toc').get<string>('slugifyMode');
@@ -167,54 +193,125 @@ export function slugify(heading: string, mode?: string, downcase?: boolean) {
         downcase = workspace.getConfiguration('markdown.extension.toc').get<boolean>('downcaseLink');
     }
 
-    let slug = heading;
+    let slug = heading.trim();
 
-    if (mode === 'github') {
-        // GitHub slugify function
+    // Case conversion must be performed before calling slugify function.
+    // Because some slugify functions encode strings in their own way.
+    if (downcase) {
+        slug = slug.toLowerCase()
+    }
+
+    // Sort by popularity.
+    switch (mode) {
+        case 'github':
+            slug = slugifyMethods.github(slug);
+            break;
+
+        case 'gitlab':
+            slug = slugifyMethods.gitlab(slug);
+            break;
+
+        case 'gitea':
+            slug = slugifyMethods.gitea(slug);
+            break;
+
+        case 'vscode':
+            slug = slugifyMethods.vscode(slug);
+            break;
+
+        case 'azureDevops':
+            slug = slugifyMethods.azureDevops(slug);
+            break;
+
+        default:
+            slug = slugifyMethods.github(slug);
+            break;
+    }
+
+    return slug;
+}
+
+/**
+ * Slugify methods.
+ *
+ * The keys are slugify modes.
+ * The values are corresponding slugify functions, whose signature must be `(slug: string) => string`.
+ */
+const slugifyMethods: { readonly [mode: string]: (text: string) => string; } = {
+    /**
+     * Azure DevOps
+     */
+    "azureDevops": (slug: string): string => {
+        // https://lemmingh.github.io/vscode-markdown-docs/specs/slugify/azure-devops.html
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent#Description
+        slug = encodeURIComponent(
+            slug.toLowerCase()
+                .replace(/\p{Zs}/gu, '-')
+        ).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16));
+
+        return slug;
+    },
+
+    /**
+     * GitHub slugify function
+     */
+    "github": (slug: string): string => {
         // <https://github.com/jch/html-pipeline/blob/master/lib/html/pipeline/toc_filter.rb>
-        slug = mdHeadingToPlaintext(heading.trim())
-            // .replace(/[A-Z]/g, match => match.toLowerCase()) // only downcase ASCII region
-            .replace(PUNCTUATION_REGEXP, '')
+        slug = mdHeadingToPlaintext(slug);
+        slug = slug.replace(PUNCTUATION_REGEXP, '')
+            .toLowerCase() // According to an inspection in 2020-09, GitHub performs full Unicode case conversion now.
             .replace(/ /g, '-');
 
-        if (downcase) {
-            slug = slug.toLowerCase()
-        }
-    } else if (mode === 'gitlab') {
-        // GitLab slugify function, translated to JS
-        // <https://gitlab.com/gitlab-org/gitlab/blob/master/lib/banzai/filter/table_of_contents_filter.rb#L32>
-        // Some bits from their other slugify function
-        // <https://gitlab.com/gitlab-org/gitlab/blob/master/app/assets/javascripts/lib/utils/text_utility.js#L49>
-        slug = mdHeadingToPlaintext(heading)
-            .trim()
-            .replace(PUNCTUATION_REGEXP, '')
+        return slug;
+    },
+
+    /**
+     * Gitea
+     */
+    "gitea": (slug: string): string => {
+        // Gitea uses the blackfriday parser
+        // https://godoc.org/github.com/russross/blackfriday#hdr-Sanitized_Anchor_Names
+        slug = slug.replace(PUNCTUATION_REGEXP, '-')
             .replace(/ /g, '-')
-            // Remove any duplicate separators or separator prefixes/suffixes
+            .replace(/_/g, '-')
             .split('-')
             .filter(Boolean)
-            .join('-')
+            .join('-');
+
+        return slug;
+    },
+
+    /**
+     * GitLab
+     */
+    "gitlab": (slug: string): string => {
+        // <https://gitlab.com/gitlab-org/gitlab/blob/master/lib/banzai/filter/table_of_contents_filter.rb#L32>
+        // https://gitlab.com/gitlab-org/gitlab/blob/b434ca4f27a0c4e3eed2c087a8d1902a09418790/lib/gitlab/utils/markdown.rb#L8-16
+        // Some bits from their other slugify function
+        // <https://gitlab.com/gitlab-org/gitlab/blob/master/app/assets/javascripts/lib/utils/text_utility.js#L49>
+        slug = mdHeadingToPlaintext(slug);
+        slug = slug.replace(PUNCTUATION_REGEXP, '')
+            .toLowerCase()
+            .replace(/ /g, '-') // Replace space with dash.
+            .replace(/-+/g, '-') // Replace multiple/consecutive dashes with only one.
             // digits-only hrefs conflict with issue refs
             .replace(/^(\d+)$/, 'anchor-$1');
 
-        if (downcase) {
-            slug = slug.toLowerCase();
-        }
-    } else {
-        // VSCode slugify function
+        return slug;
+    },
+
+    /**
+     * Visual Studio Code
+     */
+    "vscode": (slug: string): string => {
         // <https://github.com/Microsoft/vscode/blob/f5738efe91cb1d0089d3605a318d693e26e5d15c/extensions/markdown-language-features/src/slugify.ts#L22-L29>
         slug = encodeURI(
-            heading.trim()
-                // .toLowerCase()
-                .replace(/\s+/g, '-') // Replace whitespace with -
+            slug.replace(/\s+/g, '-') // Replace whitespace with -
                 .replace(/[\]\[\!\'\#\$\%\&\'\(\)\*\+\,\.\/\:\;\<\=\>\?\@\\\^\_\{\|\}\~\`。，、；：？！…—·ˉ¨‘’“”々～‖∶＂＇｀｜〃〔〕〈〉《》「」『』．〖〗【】（）［］｛｝]/g, '') // Remove known punctuators
                 .replace(/^\-+/, '') // Remove leading -
                 .replace(/\-+$/, '') // Remove trailing -
         );
 
-        if (downcase) {
-            slug = slug.toLowerCase()
-        }
+        return slug;
     }
-
-    return slug;
-}
+};

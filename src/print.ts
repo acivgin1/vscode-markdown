@@ -13,6 +13,7 @@ export function activate(context: ExtensionContext) {
     thisContext = context;
     context.subscriptions.push(
         commands.registerCommand('markdown.extension.printToHtml', () => { print('html'); }),
+        commands.registerCommand('markdown.extension.printToHtmlBatch', () => { batchPrint(); }),
         workspace.onDidSaveTextDocument(onDidSave)
     );
 }
@@ -28,7 +29,7 @@ function onDidSave(doc: TextDocument) {
     }
 }
 
-async function print(type: string) {
+async function print(type: string, uri?: Uri, outFolder?: string) {
     const editor = window.activeTextEditor;
 
     if (!isMdEditor(editor)) {
@@ -36,33 +37,46 @@ async function print(type: string) {
         return;
     }
 
-    const doc = editor.document;
+    const doc = uri ? await workspace.openTextDocument(uri) : editor.document;
     if (doc.isDirty || doc.isUntitled) {
         doc.save();
     }
 
     window.setStatusBarMessage(localize("printing") + ` '${path.basename(doc.fileName)}' ` + localize("to") + ` '${type.toUpperCase()}' ...`, 1000);
 
+    if (outFolder && !fs.existsSync(outFolder)) {
+        fs.mkdirSync(outFolder, { recursive: true });
+    }
+
     /**
      * Modified from <https://github.com/Microsoft/vscode/tree/master/extensions/markdown>
      * src/previewContentProvider MDDocumentContentProvider provideTextDocumentContent
      */
-    let outPath = doc.fileName.replace(/\.\w+?$/, `.${type}`);
-    outPath = outPath.replace(/^([cdefghij]):\\/, function (match, p1: string) {
+    let outPath = outFolder ? path.join(outFolder, path.basename(doc.fileName)) : doc.fileName;
+    outPath = outPath.replace(/\.\w+?$/, `.${type}`);
+    outPath = outPath.replace(/^([cdefghij]):\\/, function (_, p1: string) {
         return `${p1.toUpperCase()}:\\`; // Capitalize drive letter
     });
     if (!outPath.endsWith(`.${type}`)) {
         outPath += `.${type}`;
     }
 
-    let title = doc.getText().split(/\r?\n/g).find(lineText => lineText.startsWith('#'));
-    if (title) {
-        title = title.replace(/^#+/, '').replace(/#+$/, '').trim();
+    //// HTML title (GitHub #506)
+    let title: string;
+    const firstLineText = doc.lineAt(0).text;
+    let m: RegExpExecArray | null;
+    if (!!(m = /^<!-- title:\s*(\S.+)-->/.exec(firstLineText))) {
+        title = m[1].trim();
+    } else {
+        title = doc.getText().split(/\r?\n/g).find(lineText => lineText.startsWith('#'));
+        if (title) {
+            title = title.replace(/^#+/, '').replace(/#+$/, '').trim();
+        }
     }
 
     let body: string = await mdEngine.render(doc.getText(), workspace.getConfiguration('markdown.preview', doc.uri));
 
-    // Image paths
+    //// Image paths
     const config = workspace.getConfiguration('markdown.extension', doc.uri);
     const useCollapsibleHeaders = config.get<boolean>('print.useCollapsibleHeaders');
     const headingRegex = /(<h\d[^>]*>)(.*)(<\/h[^>]*>)/g;  // Match '(<h1>)(<> some text <>)(<h1>)'
@@ -128,10 +142,10 @@ async function print(type: string) {
                 } else if (imgExt === "svg") {
                     imgExt += "+xml";
                 }
-                const file = fs.readFileSync(imgSrc).toString('base64');
+                const file = fs.readFileSync(imgSrc.replace(/%20/g, '\ ')).toString('base64');
                 return `${p1}data:image/${imgExt};base64,${file}${p3}`;
             } catch (e) {
-                window.showWarningMessage(localize("unableToReadFile") + ` ${imgSrc}, ` + localize("revertingToImagePaths"));
+                window.showWarningMessage(`${localize("unableToReadFile")} ${imgSrc}, ${localize("revertingToImagePaths")}. (${doc.fileName})`);
             }
 
             if (configAbsPath) {
@@ -165,18 +179,19 @@ async function print(type: string) {
     const hasMath = hasMathEnv(doc.getText());
     const extensionStyles = await getPreviewExtensionStyles();
     const extensionScripts = await getPreviewExtensionScripts();
+    const includeVscodeStyles = config.get<boolean>('print.includeVscodeStylesheets')
     const html = `<!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>${title ? title : ''}</title>
         ${extensionStyles}
-        ${getStyles(doc.uri, hasMath)}
+        ${getStyles(doc.uri, hasMath, includeVscodeStyles)}
         ${headHtml}
         ${hasMath ? '<script src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>' : ''}
         ${extensionScripts}
     </head>
-    <body${config.get<string>('print.theme') === 'light' ? ' class="vscode-light"' : ''}>
+    <body class="vscode-body${config.get<string>('print.theme') === 'light' ? ' vscode-light' : ''}">
         ${body}
     </body>
     </html>`;
@@ -190,6 +205,34 @@ async function print(type: string) {
         case 'pdf':
             break;
     }
+}
+
+function batchPrint() {
+    const doc = window.activeTextEditor.document;
+    const root = workspace.getWorkspaceFolder(doc.uri).uri;
+    window.showOpenDialog({ defaultUri: root, openLabel: 'Select source folder', canSelectFiles: false, canSelectFolders: true }).then(uris => {
+        if (uris && uris.length > 0) {
+            const selectedPath = uris[0].fsPath;
+            const relPath = path.relative(root.fsPath, selectedPath);
+
+            if (relPath.startsWith('..')) {
+                window.showErrorMessage('Cannot use a path outside the current folder');
+                return;
+            }
+
+            workspace.findFiles((relPath.length > 0 ? relPath + '/' : '') + '**/*.{md}', '{**/node_modules,**/bower_components,**/*.code-search}').then(uris => {
+                window.showInputBox({
+                    value: selectedPath + path.sep + 'out',
+                    valueSelection: [selectedPath.length + 1, selectedPath.length + 4],
+                    prompt: 'Please specify an output folder'
+                }).then(outFolder => {
+                    uris.forEach(uri => {
+                        print('html', uri, path.join(outFolder, path.relative(selectedPath, path.dirname(uri.fsPath))));
+                    });
+                });
+            });
+        }
+    });
 }
 
 function hasMathEnv(text: string) {
@@ -222,7 +265,7 @@ function readCss(fileName: string) {
     }
 }
 
-function getStyles(uri: Uri, hasMathEnv: boolean) {
+function getStyles(uri: Uri, hasMathEnv: boolean, includeVscodeStyles: boolean) {
     const katexCss = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.min.css" integrity="sha384-yFRtMMDnQtDRO8rLpMIKrtPCD5jdktao2TV19YiZYWMDkUR5GQZR/NOVTdquEx1j" crossorigin="anonymous">';
     const markdownCss = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">';
     const highlightCss = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">';
@@ -231,12 +274,11 @@ function getStyles(uri: Uri, hasMathEnv: boolean) {
     const baseCssPaths = ['checkbox.css'].map(s => getMediaPath(s));
     const customCssPaths = getCustomStyleSheets(uri);
 
-    return `${hasMathEnv ? katexCss : ''}
-        ${markdownCss}
-        ${highlightCss}
-        ${hasMathEnv ? copyTeXCss : ''}
+    return `${hasMathEnv ? katexCss + '\n' + copyTeXCss : ''}
+        ${includeVscodeStyles
+            ? markdownCss + '\n' + highlightCss + '\n' + getPreviewSettingStyles()
+            : ''}
         ${baseCssPaths.map(cssSrc => wrapWithStyleTag(cssSrc)).join('\n')}
-        ${getPreviewSettingStyles()}
         ${customCssPaths.map(cssSrc => wrapWithStyleTag(cssSrc)).join('\n')}`;
 }
 

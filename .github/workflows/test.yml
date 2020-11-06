@@ -1,0 +1,63 @@
+name: Test
+
+# Run tests only.
+#
+# This workflow is designed to be run on PR to validate commits.
+# It can be seen as a short version of `main.yml`.
+
+on:
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+  repository_dispatch:
+    types: ["test"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: "Setup Node.js environment"
+        uses: actions/setup-node@v1
+        with:
+          node-version: "12"
+
+      - name: "Cache Node.js packages"
+        id: "cache"
+        uses: actions/cache@v2
+        with:
+          # npm cache files are stored in `~/.npm` on Linux.
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: "Install dependencies"
+        run: |
+          npm ci
+          npm install -g vsce
+
+      - name: "Set prepublish script for debug build"
+        shell: pwsh
+        run: |
+          $packageManifest = Get-Content './package.json' | ConvertFrom-Json -NoEnumerate
+          $packageManifest.scripts.'vscode:prepublish' = 'webpack --mode development'
+          $packageManifest | ConvertTo-Json -Depth 100 | Out-File -FilePath './package.json' -Encoding 'utf8NoBOM'
+
+      - name: Build debug
+        run: |
+          vsce package --out debug.vsix
+
+      - name: Test
+        uses: GabrielBB/xvfb-action@v1.0
+        with:
+          run: npm test
+
+      - name: "(debug) Upload npm log"
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: "npm-debug-log"
+          path: "~/.npm/_logs"

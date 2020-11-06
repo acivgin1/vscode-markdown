@@ -21,6 +21,9 @@ export function activate(context: ExtensionContext) {
     );
 }
 
+// The commands here are only bound to keys with `when` clause containing `editorTextFocus && !editorReadonly`. (package.json)
+// So we don't need to check whether `activeTextEditor` returns `undefined` in most cases.
+
 function onEnterKey(modifiers?: string) {
     let editor = window.activeTextEditor;
     let cursorPos: Position = editor.selection.active;
@@ -37,7 +40,18 @@ function onEnterKey(modifiers?: string) {
         return asNormal('enter', modifiers);
     }
 
-    // If it's an empty list item, remove it
+    //// This is a possibility that the current line is a thematic break `<hr>` (GitHub #785)
+    const lineTextNoSpace = line.text.replace(/\s/g, '');
+    if (lineTextNoSpace.length > 2
+        && (
+            lineTextNoSpace.replace(/\-/g, '').length === 0
+            || lineTextNoSpace.replace(/\*/g, '').length === 0
+        )
+    ) {
+        return asNormal('enter', modifiers);
+    }
+
+    //// If it's an empty list item, remove it
     if (/^(>|([-+*]|[0-9]+[.)])( +\[[ x]\])?)$/.test(textBeforeCursor.trim()) && textAfterCursor.trim().length == 0) {
         return editor.edit(editBuilder => {
             editBuilder.delete(line.range);
@@ -186,10 +200,10 @@ function asNormal(key: string, modifiers?: string) {
 
 /**
  * If
- * 
+ *
  * 1. it is not the first line
  * 2. there is a Markdown list item before this line
- * 
+ *
  * then indent the current line to align with the previous list item.
  */
 function indent(editor?: TextEditor) {
@@ -295,7 +309,7 @@ function findNextMarkerLineNumber(line?: number): number {
 /**
  * Looks for the previous ordered list marker at the same indentation level
  * and returns the marker number that should follow it.
- * 
+ *
  * @returns the fixed marker number
  */
 function lookUpwardForMarker(editor: TextEditor, line: number, currentIndentation: number): number {
@@ -400,22 +414,30 @@ function checkTaskList() {
     let editor = window.activeTextEditor;
     const uncheckedRegex = /^(\s*([-+*]|[0-9]+[.)]) +\[) \]/
     const checkedRegex = /^(\s*([-+*]|[0-9]+[.)]) +\[)x\]/
-    var toBeToggled: Position[] = [] // all spots that have an "[x]" resp. "[ ]" which should be toggled
-    var newState: boolean | undefined = undefined // true = "x", false = " ", undefined = no matching lines
+    let toBeToggled: Position[] = [] // all spots that have an "[x]" resp. "[ ]" which should be toggled
+    let newState: boolean | undefined = undefined // true = "x", false = " ", undefined = no matching lines
 
     // go through all touched lines of all selections.
     for (const selection of editor.selections) {
         for (let i = selection.start.line; i <= selection.end.line; i++) {
-            let line = editor.document.lineAt(i);
-            let lineStart = line.range.start;
+            const line = editor.document.lineAt(i);
+            const lineStart = line.range.start;
+
+            if (!selection.isSingleLine && (selection.start.isEqual(line.range.end) || selection.end.isEqual(line.range.start))) {
+                continue;
+            }
 
             let matches: RegExpExecArray;
-            if ((matches = uncheckedRegex.exec(line.text))
-                && newState !== false) {
+            if (
+                (matches = uncheckedRegex.exec(line.text))
+                && newState !== false
+            ) {
                 toBeToggled.push(lineStart.with({ character: matches[1].length }));
                 newState = true;
-            } else if ((matches = checkedRegex.exec(line.text))
-                && newState !== true) {
+            } else if (
+                (matches = checkedRegex.exec(line.text))
+                && newState !== true
+            ) {
                 toBeToggled.push(lineStart.with({ character: matches[1].length }));
                 newState = false;
             }
@@ -426,7 +448,7 @@ function checkTaskList() {
         const newChar = newState ? 'x' : ' ';
         return editor.edit(editBuilder => {
             for (const pos of toBeToggled) {
-                var range = new Range(pos, pos.with({ character: pos.character + 1 }));
+                let range = new Range(pos, pos.with({ character: pos.character + 1 }));
                 editBuilder.replace(range, newChar);
             }
         });
